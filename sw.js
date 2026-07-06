@@ -1,4 +1,4 @@
-const CACHE = 'evans-menu-v1';
+const CACHE = 'evans-menu-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -23,7 +23,21 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  const req = e.request;
+  const isPage = req.mode === 'navigate' || (req.method === 'GET' && req.headers.get('accept')?.includes('text/html'));
+  if(isPage){
+    // always try the network first for the app shell, so new deploys show up immediately;
+    // fall back to the cache only when offline
+    e.respondWith(
+      fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy));
+        return res;
+      }).catch(() => caches.match(req).then(r => r || caches.match('./index.html')))
+    );
+    return;
+  }
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./index.html')))
+    caches.match(req).then(r => r || fetch(req))
   );
 });
